@@ -4,11 +4,11 @@
 
 #ifndef STORAGE_LEVELDB_INCLUDE_DB_H_
 #define STORAGE_LEVELDB_INCLUDE_DB_H_
-#include <vector>
-#include <string>
-#include <utility>
 #include <cstdint>
 #include <cstdio>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -148,14 +148,12 @@ class LEVELDB_EXPORT DB {
   //    db->CompactRange(nullptr, nullptr);
   virtual void CompactRange(const Slice* begin, const Slice* end) = 0;
 
-  virtual Status Scan(const ReadOptions& options,
-                    const Slice& start,
-                    const Slice& end,
-                    std::vector<std::pair<std::string, std::string>>* result) = 0;
-  
-  virtual Status DeleteRange(const WriteOptions& options,
-                           const Slice& start,
-                           const Slice& end) = 0;
+  virtual Status Scan(
+      const ReadOptions& options, const Slice& start, const Slice& end,
+      std::vector<std::pair<std::string, std::string>>* result) = 0;
+
+  virtual Status DeleteRange(const WriteOptions& options, const Slice& start,
+                             const Slice& end) = 0;
   virtual Status ForceFullCompaction() = 0;
 };
 

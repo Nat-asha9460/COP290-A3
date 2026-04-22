@@ -5,19 +5,19 @@
 #ifndef STORAGE_LEVELDB_DB_DB_IMPL_H_
 #define STORAGE_LEVELDB_DB_DB_IMPL_H_
 
+#include "db/dbformat.h"
+#include "db/log_writer.h"
+#include "db/snapshot.h"
 #include <atomic>
 #include <deque>
 #include <set>
 #include <string>
-#include <vector>
-#include <string>
 #include <utility>
+#include <vector>
 
-#include "db/dbformat.h"
-#include "db/log_writer.h"
-#include "db/snapshot.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+
 #include "port/port.h"
 #include "port/thread_annotations.h"
 
@@ -38,15 +38,13 @@ class DBImpl : public DB {
 
   ~DBImpl() override;
 
-   Status Scan(const ReadOptions& options,
-            const Slice& start,
-            const Slice& end,
-            std::vector<std::pair<std::string, std::string>>* result) override;
-   Status DeleteRange(const WriteOptions& options,
-              const Slice& start,
-               const Slice& end) override;
+  Status Scan(
+      const ReadOptions& options, const Slice& start, const Slice& end,
+      std::vector<std::pair<std::string, std::string>>* result) override;
+  Status DeleteRange(const WriteOptions& options, const Slice& start,
+                     const Slice& end) override;
 
-   Status ForceFullCompaction() override;
+  Status ForceFullCompaction() override;
 
   // Implementations of the DB interface
   Status Put(const WriteOptions&, const Slice& key,

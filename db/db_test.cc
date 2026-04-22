@@ -3,27 +3,30 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "leveldb/db.h"
-#include <vector>
-#include <iostream>
-#include <atomic>
-#include <cinttypes>
-#include <string>
 
-#include "gtest/gtest.h"
 #include "db/db_impl.h"
 #include "db/filename.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
+#include <atomic>
+#include <cinttypes>
+#include <iostream>
+#include <string>
+#include <vector>
+
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/table.h"
+
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/hash.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -2126,22 +2129,18 @@ class ModelDB : public DB {
     assert(false);  // Not implemented
     return Status::NotFound(key);
   }
-  Status Scan(const ReadOptions& options,
-            const Slice& start,
-            const Slice& end,
-            std::vector<std::pair<std::string, std::string>>* result) override {
-  return Status::OK();
-}
+  Status Scan(
+      const ReadOptions& options, const Slice& start, const Slice& end,
+      std::vector<std::pair<std::string, std::string>>* result) override {
+    return Status::OK();
+  }
 
-Status DeleteRange(const WriteOptions& options,
-                   const Slice& start,
-                   const Slice& end) override {
-  return Status::OK();
-}
+  Status DeleteRange(const WriteOptions& options, const Slice& start,
+                     const Slice& end) override {
+    return Status::OK();
+  }
 
-Status ForceFullCompaction() override {
-  return Status::OK();
-}
+  Status ForceFullCompaction() override { return Status::OK(); }
   Iterator* NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {
       KVMap* saved = new KVMap;
@@ -2373,7 +2372,7 @@ TEST_F(DBTest, Randomized) {
     if (db_snap != nullptr) db_->ReleaseSnapshot(db_snap);
   } while (ChangeOptions());
 }
- TEST_F(DBTest, ScanDeleteCompactionTest){
+TEST_F(DBTest, ScanDeleteCompactionTest) {
   Options options;
   options.create_if_missing = true;
 
