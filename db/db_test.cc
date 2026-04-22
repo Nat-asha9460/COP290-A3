@@ -3,7 +3,8 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "leveldb/db.h"
-
+#include <vector>
+#include <iostream>
 #include <atomic>
 #include <cinttypes>
 #include <string>
@@ -2125,6 +2126,22 @@ class ModelDB : public DB {
     assert(false);  // Not implemented
     return Status::NotFound(key);
   }
+  Status Scan(const ReadOptions& options,
+            const Slice& start,
+            const Slice& end,
+            std::vector<std::pair<std::string, std::string>>* result) override {
+  return Status::OK();
+}
+
+Status DeleteRange(const WriteOptions& options,
+                   const Slice& start,
+                   const Slice& end) override {
+  return Status::OK();
+}
+
+Status ForceFullCompaction() override {
+  return Status::OK();
+}
   Iterator* NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {
       KVMap* saved = new KVMap;
@@ -2355,6 +2372,59 @@ TEST_F(DBTest, Randomized) {
     if (model_snap != nullptr) model.ReleaseSnapshot(model_snap);
     if (db_snap != nullptr) db_->ReleaseSnapshot(db_snap);
   } while (ChangeOptions());
+}
+ TEST_F(DBTest, ScanDeleteCompactionTest){
+  Options options;
+  options.create_if_missing = true;
+
+  DB* db;
+  ASSERT_LEVELDB_OK(DB::Open(options, "/tmp/testdb", &db));
+
+  WriteOptions write_options;
+  ReadOptions read_options;
+
+  // Insert
+  ASSERT_LEVELDB_OK(db->Put(write_options, "1", "A"));
+  ASSERT_LEVELDB_OK(db->Put(write_options, "2", "B"));
+  ASSERT_LEVELDB_OK(db->Put(write_options, "3", "C"));
+  ASSERT_LEVELDB_OK(db->Put(write_options, "4", "D"));
+
+  // -------- Scan --------
+  std::vector<std::pair<std::string, std::string>> result;
+  ASSERT_LEVELDB_OK(db->Scan(read_options, "2", "4", &result));
+
+  ASSERT_EQ(result.size(), 2);
+
+  bool found2 = false, found3 = false;
+  for (auto& p : result) {
+    if (p.first == "2" && p.second == "B") found2 = true;
+    if (p.first == "3" && p.second == "C") found3 = true;
+  }
+
+  EXPECT_TRUE(found2);
+  EXPECT_TRUE(found3);
+
+  // -------- DeleteRange --------
+  ASSERT_LEVELDB_OK(db->DeleteRange(write_options, "2", "4"));
+
+  result.clear();
+  ASSERT_LEVELDB_OK(db->Scan(read_options, "1", "5", &result));
+
+  ASSERT_EQ(result.size(), 2);
+
+  bool found1 = false, found4 = false;
+  for (auto& p : result) {
+    if (p.first == "1" && p.second == "A") found1 = true;
+    if (p.first == "4" && p.second == "D") found4 = true;
+  }
+
+  EXPECT_TRUE(found1);
+  EXPECT_TRUE(found4);
+
+  // -------- Compaction --------
+  ASSERT_LEVELDB_OK(db->ForceFullCompaction());
+
+  delete db;
 }
 
 }  // namespace leveldb

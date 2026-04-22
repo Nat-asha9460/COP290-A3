@@ -9,6 +9,9 @@
 #include <deque>
 #include <set>
 #include <string>
+#include <vector>
+#include <string>
+#include <utility>
 
 #include "db/dbformat.h"
 #include "db/log_writer.h"
@@ -34,6 +37,16 @@ class DBImpl : public DB {
   DBImpl& operator=(const DBImpl&) = delete;
 
   ~DBImpl() override;
+
+   Status Scan(const ReadOptions& options,
+            const Slice& start,
+            const Slice& end,
+            std::vector<std::pair<std::string, std::string>>* result) override;
+   Status DeleteRange(const WriteOptions& options,
+              const Slice& start,
+               const Slice& end) override;
+
+   Status ForceFullCompaction() override;
 
   // Implementations of the DB interface
   Status Put(const WriteOptions&, const Slice& key,
