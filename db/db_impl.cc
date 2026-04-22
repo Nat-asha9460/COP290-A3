@@ -18,7 +18,6 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
-#include <iostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -1627,14 +1626,6 @@ Status DBImpl::ForceFullCompaction() {
   output_files += 1;
   bytes_read += 1000;
   bytes_written += 1000;
-
-  // Print stats
-  std::cout << "Full Compaction Done!\n";
-  std::cout << "Compactions: " << compactions << "\n";
-  std::cout << "Input files: " << input_files << "\n";
-  std::cout << "Output files: " << output_files << "\n";
-  std::cout << "Bytes read: " << bytes_read << "\n";
-  std::cout << "Bytes written: " << bytes_written << "\n";
 
   return Status::OK();
 }
