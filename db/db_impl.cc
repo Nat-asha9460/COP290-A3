@@ -3,7 +3,7 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "db/db_impl.h"
-
+#include <iostream>
 
 #include <algorithm>
 #include <atomic>
@@ -1616,31 +1616,67 @@ Status DBImpl::DeleteRange(const WriteOptions& options,
 
     return Status::OK();
 }
-Status DBImpl::DeleteRange(const WriteOptions& options,
-                           const Slice& start,
-                           const Slice& end) {
-    std::vector<std::string> keys;
+Status DBImpl::ForceFullCompaction() {
+  // Step 1: Flush memtable to disk first
+  Status s = TEST_CompactMemTable();
+  if (!s.ok()) return s;
 
-    ReadOptions ro;
-    CompactRange(nullptr, nullptr);
-    Iterator* it = NewIterator(ro);
-
-    for (it->Seek(start); it->Valid(); it->Next()) {
-        if (it->key().compare(end) >= 0) break;
-        keys.push_back(it->key().ToString());
+  // Step 2: Save stats snapshot before compaction
+  CompactionStats stats_before[config::kNumLevels];
+  {
+    MutexLock l(&mutex_);
+    for (int i = 0; i < config::kNumLevels; i++) {
+      stats_before[i] = stats_[i];
     }
-    if (!it->status().ok()) {
-      delete it;
-      return it->status();
+  }
+
+  // Step 3: Compact all levels sequentially (0 → kNumLevels-2)
+  int num_compactions = 0;
+  int total_input_files = 0;
+
+  for (int level = 0; level < config::kNumLevels - 1; level++) {
+    int files_at_level;
+    {
+      MutexLock l(&mutex_);
+      files_at_level = versions_->NumLevelFiles(level);
     }
-
-    delete it;
-
-    for (const auto& k : keys) {
-        Delete(options, k);
+    if (files_at_level > 0) {
+      total_input_files += files_at_level;
+      TEST_CompactRange(level, nullptr, nullptr);
+      num_compactions++;
     }
+  }
 
-    return Status::OK();
+  // Step 4: Collect stats delta
+  int64_t total_bytes_read = 0;
+  int64_t total_bytes_written = 0;
+  int total_output_files = 0;
+  {
+    MutexLock l(&mutex_);
+    for (int i = 0; i < config::kNumLevels; i++) {
+      total_bytes_read    += stats_[i].bytes_read    - stats_before[i].bytes_read;
+      total_bytes_written += stats_[i].bytes_written - stats_before[i].bytes_written;
+      total_output_files  += versions_->NumLevelFiles(i);
+    }
+  }
+
+  // Step 5: Print human-readable statistics
+  std::fprintf(stdout,
+    "\n=== ForceFullCompaction Statistics ===\n"
+    "  Compactions executed : %d\n"
+    "  Input  files         : %d\n"
+    "  Output files         : %d\n"
+    "  Bytes read           : %lld\n"
+    "  Bytes written        : %lld\n"
+    "======================================\n\n",
+    num_compactions,
+    total_input_files,
+    total_output_files,
+    static_cast<long long>(total_bytes_read),
+    static_cast<long long>(total_bytes_written));
+
+  return Status::OK();
 }
+
 
 }  // namespace leveldb
