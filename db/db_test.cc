@@ -2377,7 +2377,9 @@ TEST_F(DBTest, ScanDeleteCompactionTest) {
   options.create_if_missing = true;
 
   DB* db;
-  ASSERT_LEVELDB_OK(DB::Open(options, "/tmp/testdb", &db));
+  std::string test_db_path = dbname_ + "_scan_test";
+  DestroyDB(test_db_path, options);
+  ASSERT_LEVELDB_OK(DB::Open(options, test_db_path, &db));
 
   WriteOptions write_options;
   ReadOptions read_options;
@@ -2424,6 +2426,7 @@ TEST_F(DBTest, ScanDeleteCompactionTest) {
   ASSERT_LEVELDB_OK(db->ForceFullCompaction());
 
   delete db;
+  DestroyDB(test_db_path, options);
 }
 
 }  // namespace leveldb
