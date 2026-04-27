@@ -1597,9 +1597,7 @@ Status DBImpl::Scan(const ReadOptions& options,
 Status DBImpl::DeleteRange(const WriteOptions& options,
                            const Slice& start,
                            const Slice& end) {
-
     std::vector<std::string> keys;
-
     ReadOptions ro;
     Iterator* it = NewIterator(ro);
 
@@ -1607,13 +1605,11 @@ Status DBImpl::DeleteRange(const WriteOptions& options,
         if (it->key().compare(end) >= 0) break;
         keys.push_back(it->key().ToString());
     }
-
     delete it;
 
     for (const auto& k : keys) {
         Delete(options, k);
     }
-
     return Status::OK();
 }
 Status DBImpl::ForceFullCompaction() {
