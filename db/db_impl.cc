@@ -1605,8 +1605,9 @@ Status DBImpl::DeleteRange(const WriteOptions& options, const Slice& start,
   delete it;
 
   for (const auto& k : keys) {
-    Delete(options, k);
-  }
+    Status s = Delete(options, k);
+    if (!s.ok()) return s;
+  }     
 
   return Status::OK();
 }
