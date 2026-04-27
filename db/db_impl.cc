@@ -1594,50 +1594,88 @@ Status DBImpl::Scan(const ReadOptions& options,
     delete it;
     return Status::OK();
 }
-Status DBImpl::DeleteRange(const WriteOptions& options, const Slice& start, const Slice& end) {
-  // 1. Iterator create karein
-  Iterator* it = NewIterator(ReadOptions());
-  WriteBatch batch;
-  
-  // 2. Start key par seek karein
-  for (it->Seek(start); it->Valid() && it->key().compare(end) < 0; it->Next()) {
-    // Har key ko batch mein add karein (Direct delete ki jagah)
-    batch.Delete(it->key());
-  }
+Status DBImpl::DeleteRange(const WriteOptions& options,
+                           const Slice& start,
+                           const Slice& end) {
+    std::vector<std::string> keys;
+    ReadOptions ro;
+    Iterator* it = NewIterator(ro);
 
-  Status s = it->status();
-  delete it; // Iterator delete karna mat bhoolna (Memory leak check)
+    for (it->Seek(start); it->Valid(); it->Next()) {
+      Slice user_key = ExtractUserKey(it->key());
+      
+        if (user_key.compare(start) < 0) continue;
+        if (user_key.compare(end) >= 0) break;
+        keys.push_back(user_key.ToString());
+    }
+    delete it;
 
-  if (!s.ok()) return s;
-
-  // 3. Ek hi baar mein poori batch write karein (Atomic and Fast)
-  return Write(options, &batch);
+    for (const auto& k : keys) {
+        Delete(options, k);
+    }
+    return Status::OK();
 }
 Status DBImpl::ForceFullCompaction() {
-  // 1. Sabse pehle memtable ko flush karein taaki sara data disk (L0) par aa jaye
+  // Step 1: Flush memtable to disk first
   Status s = TEST_CompactMemTable();
   if (!s.ok()) return s;
 
-  // 2. Bottom-up approach ya multiple passes zyada reliable hote hain
-  // LevelDB mein full compaction ka matlab hai saara data Max Level tak push karna
+  // Step 2: Save stats snapshot before compaction
+  CompactionStats stats_before[config::kNumLevels];
+  {
+    MutexLock l(&mutex_);
+    for (int i = 0; i < config::kNumLevels; i++) {
+      stats_before[i] = stats_[i];
+    }
+  }
+
+  // Step 3: Compact all levels sequentially (0 → kNumLevels-2)
+  int num_compactions = 0;
+  int total_input_files = 0;
+
   for (int level = 0; level < config::kNumLevels - 1; level++) {
-    // Check karein ki kya is level par files hain?
     int files_at_level;
     {
       MutexLock l(&mutex_);
       files_at_level = versions_->NumLevelFiles(level);
     }
-    
-    // Sirf tabhi compact karein jab files hon, par isse 2-3 baar trigger karna 
-    // behtar hai taaki "cascading" compaction ho sake
     if (files_at_level > 0) {
+      total_input_files += files_at_level;
       TEST_CompactRange(level, nullptr, nullptr);
+      num_compactions++;
     }
   }
 
-  // Bonus: Ek baar wapas scan kar lena chahiye ki kuch reh toh nahi gaya
-  // Level 0 hamesha empty hona chahiye full compaction ke baad
+  // Step 4: Collect stats delta
+  int64_t total_bytes_read = 0;
+  int64_t total_bytes_written = 0;
+  int total_output_files = 0;
+  {
+    MutexLock l(&mutex_);
+    for (int i = 0; i < config::kNumLevels; i++) {
+      total_bytes_read    += stats_[i].bytes_read    - stats_before[i].bytes_read;
+      total_bytes_written += stats_[i].bytes_written - stats_before[i].bytes_written;
+      total_output_files  += versions_->NumLevelFiles(i);
+    }
+  }
+
+  // Step 5: Print human-readable statistics
+  std::fprintf(stdout,
+    "\n=== ForceFullCompaction Statistics ===\n"
+    "  Compactions executed : %d\n"
+    "  Input  files         : %d\n"
+    "  Output files         : %d\n"
+    "  Bytes read           : %lld\n"
+    "  Bytes written        : %lld\n"
+    "======================================\n\n",
+    num_compactions,
+    total_input_files,
+    total_output_files,
+    static_cast<long long>(total_bytes_read),
+    static_cast<long long>(total_bytes_written));
+
   return Status::OK();
 }
+
 
 }  // namespace leveldb
