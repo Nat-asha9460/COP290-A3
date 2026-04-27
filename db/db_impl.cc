@@ -4,6 +4,15 @@
 
 #include "db/db_impl.h"
 
+
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <cstdio>
+#include <set>
+#include <string>
+#include <vector>
+
 #include "db/builder.h"
 #include "db/db_iter.h"
 #include "db/dbformat.h"
@@ -14,20 +23,11 @@
 #include "db/table_cache.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
-#include <algorithm>
-#include <atomic>
-#include <cstdint>
-#include <cstdio>
-#include <set>
-#include <string>
-#include <vector>
-
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/table_builder.h"
-
 #include "port/port.h"
 #include "table/block.h"
 #include "table/merger.h"
@@ -1555,6 +1555,7 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
     return Status::OK();
   }
 
+
   FileLock* lock;
   const std::string lockname = LockFileName(dbname);
   result = env->LockFile(lockname, &lock);
@@ -1576,44 +1577,66 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
   }
   return result;
 }
-Status DBImpl::Scan(const ReadOptions& options, const Slice& start,
+Status DBImpl::Scan(const ReadOptions& options,
+                    const Slice& start,
                     const Slice& end,
                     std::vector<std::pair<std::string, std::string>>* result) {
-  Iterator* it = NewIterator(options);
 
-  for (it->Seek(start); it->Valid(); it->Next()) {
-    if (it->key().compare(end) >= 0) break;
+    Iterator* it = NewIterator(options);
 
-    result->push_back({it->key().ToString(), it->value().ToString()});
-  }
+    for (it->Seek(start); it->Valid(); it->Next()) {
+        if (it->key().compare(end) >= 0) break;
 
-  delete it;
-  return Status::OK();
+        result->push_back({it->key().ToString(),
+                           it->value().ToString()});
+    }
+
+    delete it;
+    return Status::OK();
 }
-Status DBImpl::DeleteRange(const WriteOptions& options, const Slice& start,
+Status DBImpl::DeleteRange(const WriteOptions& options,
+                           const Slice& start,
                            const Slice& end) {
-  std::vector<std::string> keys;
 
-  ReadOptions ro;
-  ro.snapshot = nullptr; 
-  Iterator* it = NewIterator(ro);
+    std::vector<std::string> keys;
 
-  for (it->Seek(start); it->Valid(); it->Next()) {
-    if (it->key().compare(end) >= 0) break;
-    keys.push_back(it->key().ToString());
-  }
+    ReadOptions ro;
+    Iterator* it = NewIterator(ro);
 
-  delete it;
+    for (it->Seek(start); it->Valid(); it->Next()) {
+        if (it->key().compare(end) >= 0) break;
+        keys.push_back(it->key().ToString());
+    }
 
-  for (const auto& k : keys) {
-    Delete(options, k);
-  }
+    delete it;
 
-  return Status::OK();
+    for (const auto& k : keys) {
+        Delete(options, k);
+    }
+
+    return Status::OK();
 }
-Status DBImpl::ForceFullCompaction() {
-  CompactRange(nullptr, nullptr);
-  return Status::OK();
+Status DBImpl::DeleteRange(const WriteOptions& options,
+                           const Slice& start,
+                           const Slice& end) {
+    std::vector<std::string> keys;
+
+    ReadOptions ro;
+    CompactRange(nullptr, nullptr);
+    Iterator* it = NewIterator(ro);
+
+    for (it->Seek(start); it->Valid(); it->Next()) {
+        if (it->key().compare(end) >= 0) break;
+        keys.push_back(it->key().ToString());
+    }
+
+    delete it;
+
+    for (const auto& k : keys) {
+        Delete(options, k);
+    }
+
+    return Status::OK();
 }
 
 }  // namespace leveldb
