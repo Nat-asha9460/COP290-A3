@@ -1612,21 +1612,7 @@ Status DBImpl::DeleteRange(const WriteOptions& options, const Slice& start,
   return Status::OK();
 }
 Status DBImpl::ForceFullCompaction() {
-  int compactions = 0;
-  int input_files = 0;
-  int output_files = 0;
-  uint64_t bytes_read = 0;
-  uint64_t bytes_written = 0;
-
-  // Run compaction
   CompactRange(nullptr, nullptr);
-  compactions++;
-
-  // Dummy stats (acceptable for assignment)
-  input_files += 1;
-  output_files += 1;
-  
-
   return Status::OK();
 }
 
