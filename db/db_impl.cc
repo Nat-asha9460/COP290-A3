@@ -1629,6 +1629,10 @@ Status DBImpl::DeleteRange(const WriteOptions& options,
         if (it->key().compare(end) >= 0) break;
         keys.push_back(it->key().ToString());
     }
+    if (!it->status().ok()) {
+      delete it;
+      return it->status();
+    }
 
     delete it;
 
