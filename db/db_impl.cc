@@ -1591,29 +1591,30 @@ Status DBImpl::Scan(const ReadOptions& options,
                            it->value().ToString()});
     }
 
+    Status s = it->status();
     delete it;
-    return Status::OK();
+    return s;
 }
 Status DBImpl::DeleteRange(const WriteOptions& options,
                            const Slice& start,
                            const Slice& end) {
-    std::vector<std::string> keys;
     ReadOptions ro;
     Iterator* it = NewIterator(ro);
+    WriteBatch batch;
 
     for (it->Seek(start); it->Valid(); it->Next()) {
-      Slice user_key = ExtractUserKey(it->key());
-      
-        if (user_key.compare(start) < 0) continue;
-        if (user_key.compare(end) >= 0) break;
-        keys.push_back(user_key.ToString());
+        if (it->key().compare(end) >= 0) break;
+        batch.Delete(it->key());
     }
+    
+    Status s = it->status();
     delete it;
 
-    for (const auto& k : keys) {
-        Delete(options, k);
+    if (!s.ok()) {
+        return s;
     }
-    return Status::OK();
+
+    return Write(options, &batch);
 }
 Status DBImpl::ForceFullCompaction() {
   // Step 1: Flush memtable to disk first
