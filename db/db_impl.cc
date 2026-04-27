@@ -1622,7 +1622,7 @@ Status DBImpl::ForceFullCompaction() {
   if (!s.ok()) return s;
 
   // Step 2: Save stats snapshot before compaction
-  CompactionStats stats_before[config::kNumLevels];
+  std::vector<CompactionStats> stats_before(config::kNumLevels);
   {
     MutexLock l(&mutex_);
     for (int i = 0; i < config::kNumLevels; i++) {
